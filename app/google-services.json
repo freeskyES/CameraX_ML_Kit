@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "1017629783248",
+    "firebase_url": "https://camera-ml-kit.firebaseio.com",
+    "project_id": "camera-ml-kit",
+    "storage_bucket": "camera-ml-kit.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1017629783248:android:607283935b843ae84e9ad5",
+        "android_client_info": {
+          "package_name": "com.tenqube.firebase_ml_kit"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1017629783248-q6r5jj5kj8r1212ro19h7ab8rsi7u19v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbvXZvF_wxWjXU41NSLtp2ltfa3BGURHg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1017629783248-q6r5jj5kj8r1212ro19h7ab8rsi7u19v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
