@@ -48,23 +48,29 @@ class FaceContourDetectorProcessor : VisionProcessorBase<List<FirebaseVisionFace
         frameMetadata: FrameMetadata,
         graphicOverlay: GraphicOverlay
     ) {
+
+        if (results.isEmpty()) {
+//            showToast("No face found")
+            return
+        }
         graphicOverlay.clear()
 
-        originalCameraImage?.let {
-            val imageGraphic =
-                CameraImageGraphic(
-                    graphicOverlay,
-                    it
-                )
-            graphicOverlay.add(imageGraphic)
-        }
+//        originalCameraImage?.let {
+//            val imageGraphic =
+//                CameraImageGraphic(
+//                    graphicOverlay,
+//                    it
+//                )
+//            graphicOverlay.add(imageGraphic)
+//        }
 
         results.forEach {
             val faceGraphic = FaceContourGraphic(graphicOverlay, it)
             graphicOverlay.add(faceGraphic)
+            faceGraphic.updateFace(it)
         }
 
-        graphicOverlay.postInvalidate()
+
     }
 
     override fun onFailure(e: Exception) {

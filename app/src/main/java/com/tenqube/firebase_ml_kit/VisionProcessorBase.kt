@@ -1,6 +1,7 @@
 package com.tenqube.firebase_ml_kit
 
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.annotation.GuardedBy
 import com.google.android.gms.tasks.Task
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
@@ -55,12 +56,28 @@ abstract class VisionProcessorBase<T> :
                          graphicOverlay: GraphicOverlay) {
 
         detectInVisionImage(
-            bitmap,//null, /* bitmap */
+            //bitmap,//null, /* bitmap */
             FirebaseVisionImage.fromBitmap(bitmap),
             frameMetadata,
             graphicOverlay
         )
     }
+
+    @Synchronized
+    override fun process(/*bitmap: Bitmap,*/
+                         firebaseVisionImage: FirebaseVisionImage,
+                         frameMetadata: FrameMetadata,
+                         graphicOverlay: GraphicOverlay) {
+
+        detectInVisionImage(
+            /*firebaseVisionImage.bitmap,*///null, /* bitmap */
+            firebaseVisionImage,
+            frameMetadata,
+            graphicOverlay
+        )
+    }
+
+
 
     @Synchronized
     private fun processLatestImage(graphicOverlay: GraphicOverlay) {
@@ -85,15 +102,16 @@ abstract class VisionProcessorBase<T> :
             .setRotation(frameMetadata.rotation)
             .build()
 
-        val bitmap = BitmapUtils.getBitmap(data, frameMetadata)
+//        val bitmap = BitmapUtils.getBitmap(data, frameMetadata)
+//        Log.i("processImage","bitmap $bitmap")
         detectInVisionImage(
-            bitmap, FirebaseVisionImage.fromByteBuffer(data, metadata), frameMetadata,
+            /*bitmap,*/ FirebaseVisionImage.fromByteBuffer(data, metadata), frameMetadata,
             graphicOverlay
         )
     }
 
     private fun detectInVisionImage(
-        originalCameraImage: Bitmap?,
+        /*originalCameraImage: Bitmap?,*/
         image: FirebaseVisionImage,
         metadata: FrameMetadata?,
         graphicOverlay: GraphicOverlay
@@ -101,7 +119,7 @@ abstract class VisionProcessorBase<T> :
         detectInImage(image)
             .addOnSuccessListener { results ->
                 onSuccess(
-                    originalCameraImage, results,
+                    image.bitmap/*originalCameraImage*/, results,
                     metadata!!,
                     graphicOverlay
                 )

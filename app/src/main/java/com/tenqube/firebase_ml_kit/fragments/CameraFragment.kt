@@ -21,19 +21,23 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.hardware.Camera
 import android.hardware.display.DisplayManager
+import android.media.Image
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
+import android.util.Pair
 import android.view.*
 import android.webkit.MimeTypeMap
 import android.widget.ImageButton
+import android.widget.Toast
 import androidx.camera.core.*
 import androidx.camera.core.ImageCapture.CaptureMode
 import androidx.camera.core.ImageCapture.Metadata
@@ -49,13 +53,16 @@ import com.android.example.cameraxbasic.utils.AutoFitPreviewBuilder
 import com.android.example.cameraxbasic.utils.simulateClick
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
+import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
-import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
+import com.google.firebase.ml.vision.face.FirebaseVisionFace
+import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import com.tenqube.firebase_ml_kit.KEY_EVENT_ACTION
 import com.tenqube.firebase_ml_kit.KEY_EVENT_EXTRA
 import com.tenqube.firebase_ml_kit.MainActivity
 import com.tenqube.firebase_ml_kit.R
 import com.tenqube.firebase_ml_kit.facedetection.FaceContourDetectorProcessor
+import com.tenqube.firebase_ml_kit.facedetection.FaceContourGraphic
 import com.tenqube.firebase_ml_kit.facedetection.YourImageAnalyzer
 import com.tenqube.firebase_ml_kit.facedetection.common.FrameMetadata
 import com.tenqube.firebase_ml_kit.facedetection.common.GraphicOverlay
@@ -64,11 +71,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.collections.ArrayList
+import kotlin.concurrent.withLock
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -95,14 +105,20 @@ class CameraFragment : Fragment()/*, CoroutineScope */{
     private lateinit var mainExecutor: Executor
 
     private var displayId = -1
-    private var lensFacing = CameraX.LensFacing.BACK
+    private var lensFacing = CameraX.LensFacing.FRONT//CameraX.LensFacing.BACK
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var imageAnalyzer: ImageAnalysis? = null
 
+    private var processingThread: Thread? = null
+    private lateinit var processingRunnable: FrameProcessingRunnable
+
     private var frameProcessor: VisionImageProcessor? = null
     private lateinit var graphicOverlay: GraphicOverlay
-    private val processorLock = Any()
+    private val processorLock = ReentrantLock()
+
+    private var isProcessing: Boolean = false
+    private var imageBuffer = IdentityHashMap<Int, FirebaseVisionImage>()
 
 
     private fun cleanScreen() {
@@ -150,7 +166,7 @@ class CameraFragment : Fragment()/*, CoroutineScope */{
         // Mark this as a retain fragment, so the lifecycle does not get restarted on config change
         retainInstance = true
         mainExecutor = ContextCompat.getMainExecutor(requireContext())
-
+        processingRunnable = FrameProcessingRunnable()
     }
 
 //    override fun onResume() {
@@ -184,8 +200,8 @@ class CameraFragment : Fragment()/*, CoroutineScope */{
 
 //        synchronized(processorLock) {
             cleanScreen()
-            frameProcessor?.let { it.stop() }
-            frameProcessor = FaceContourDetectorProcessor()
+//            frameProcessor?.let { it.stop() }
+//            frameProcessor = FaceContourDetectorProcessor()
 //        }
         return view
 
@@ -320,12 +336,21 @@ class CameraFragment : Fragment()/*, CoroutineScope */{
         // Setup image analysis pipeline that computes average pixel luminance in real time
         val analyzerConfig = ImageAnalysisConfig.Builder().apply {
             setLensFacing(lensFacing)
+            setTargetResolution(android.util.Size(viewFinder.display.height, viewFinder.display.width))
             // In our analysis, we care more about the latest image than analyzing *every* image
             setImageReaderMode(ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE)
             // Set initial target rotation, we will have to call this again if rotation changes
             // during the lifecycle of this use case
             setTargetRotation(viewFinder.display.rotation)
         }.build()
+
+        if (lensFacing == CameraX.LensFacing.FRONT) {
+            synchronized(processorLock) {
+                cleanScreen()
+                frameProcessor?.let { it.stop() }
+                frameProcessor = FaceContourDetectorProcessor()
+            }
+        }
 
 //        imageAnalyzer = ImageAnalysis(analyzerConfig).apply {
 //            setAnalyzer(mainExecutor,
@@ -344,12 +369,23 @@ class CameraFragment : Fragment()/*, CoroutineScope */{
 //        }
         imageAnalyzer = ImageAnalysis(analyzerConfig).apply {
             setAnalyzer(mainExecutor,
-                YourImageAnalyzer { image: FirebaseVisionImage, buffer: ByteBuffer, rotation: Int ->
+                YourImageAnalyzer { image: FirebaseVisionImage, inputImage :Image?, buffer: ByteBuffer, rotation: Int ->
 //                    VisionUtils.detectFaces(image)
 //                    lifecycleScope.launch(Dispatchers.Main) {
-                        run(image, buffer, rotation, metrics)
-//                    }
+//                    val index = image.hashCode()
+//                    imageBuffer[index] = image
+
+
+//                    processingRunnable.setNextFrame(image, rotation)
+                    runFaceContourDetection(image)
+
                 })
+        }
+
+        Thread(processingRunnable).let {
+            processingThread = it
+            processingRunnable.setActive(true)
+            processingThread?.start()
         }
 
         // Apply declared configs to CameraX using the same lifecycle owner
@@ -357,34 +393,196 @@ class CameraFragment : Fragment()/*, CoroutineScope */{
                 viewLifecycleOwner, preview, imageCapture, imageAnalyzer)
     }
 
-    private fun run(image: FirebaseVisionImage, data: ByteBuffer, imageRotation: Int, metrics: DisplayMetrics) {
-        synchronized(processorLock) {
-            Log.d("run", "Process an image ${viewFinder.display.width} ${viewFinder.display.height}")
-
-            val size = viewFinder.display.width * viewFinder.display.height
-            Log.d("run", "Process an image $data")
-            Log.d("run", "size $size")
-            try {
-                val a = data.toByteArray()
-                if(a.size < size) {
-                    frameProcessor!!.process(
-//                image.bitmap, // bitmap 은 너무 느림 !!!
-                        data,
-                        FrameMetadata.Builder()
-                            .setWidth(viewFinder.display.width)
-                            .setHeight(viewFinder.display.height)
-                            .setRotation(imageRotation)
-                            .setCameraFacing(lensFacing.ordinal)
-                            .build(),
-                        graphicOverlay
-                    )
+    private fun runFaceContourDetection(firebaseVisionImage: FirebaseVisionImage) {
+        try {
+            val image = firebaseVisionImage
+            val options = FirebaseVisionFaceDetectorOptions.Builder()
+                .setPerformanceMode(FirebaseVisionFaceDetectorOptions.FAST)
+                .setContourMode(FirebaseVisionFaceDetectorOptions.ALL_CONTOURS)
+                .build()
+            isProcessing = false
+            val detector =
+                FirebaseVision.getInstance().getVisionFaceDetector(options)
+            detector.detectInImage(image)
+                .addOnSuccessListener { faces ->
+                    isProcessing = true
+                    processFaceContourDetectionResult(faces)
                 }
+                .addOnFailureListener { e ->
+                    // Task failed with an exception
+                    isProcessing = true
+                    e.printStackTrace()
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
-            } catch (e: Exception) {
+    }
+
+    private fun processFaceContourDetectionResult(faces: List<FirebaseVisionFace>) { // Task completed successfully
+        if (faces.isEmpty()) {
+            showToast("No face found")
+            return
+        }
+        graphicOverlay.clear()
+        for (i in faces.indices) {
+            val face = faces[i]
+            val faceGraphic = FaceContourGraphic(graphicOverlay, face)
+            graphicOverlay.add(faceGraphic)
+            faceGraphic.updateFace(face)
+        }
+    }
+
+    override fun onPause() {
+        stop()
+        super.onPause()
+    }
+
+    private fun stop(){
+        processingRunnable.setActive(false)
+        if (processingThread != null) {
+            try { // Wait for the thread to complete to ensure that we can't have multiple threads
+// executing at the same time (i.e., which would happen if we called start too
+// quickly after stop).
+                processingThread!!.join()
+            } catch (e: InterruptedException) {
                 e.printStackTrace()
             }
+            processingThread = null
+        }
+        imageBuffer.clear()
+        processingRunnable.release()
+    }
 
+    inner class FrameProcessingRunnable internal constructor() : Runnable {
+        // This lock guards all of the member variables below.
+        private val lock = ReentrantLock()
+        private val condition = lock.newCondition()
 
+        private var active = true
+        // These pending variables hold the state associated with the new frame awaiting processing.
+        private var pendingFrameData: FirebaseVisionImage? = null
+        private var imageRotation: Int = 3
+
+        /**
+         * Releases the underlying receiver. This is only safe to do after the associated thread has
+         * completed, which is managed in camera source's release method above.
+         */
+        @SuppressLint("Assert")
+        fun release() {
+            assert(processingThread?.state == Thread.State.TERMINATED)
+        }
+
+        /** Marks the runnable as active/not active. Signals any blocked threads to continue.  */
+        fun setActive(active: Boolean) {
+            lock.withLock {
+                this.active = active
+                condition.signalAll()
+            }
+        }
+
+        /**
+         * Sets the frame data received from the camera. This adds the previous unused frame buffer (if
+         * present) back to the camera, and keeps a pending reference to the frame data for future use.
+         */
+        fun setNextFrame(data: FirebaseVisionImage, imageRotation: Int) {
+            lock.withLock {
+                if (pendingFrameData != null) {
+                    pendingFrameData = null
+                }
+//                if (!imageBuffer.containsKey(index)) {
+//                    Log.d(
+//                        "setNextFrame",
+//                        "Skipping frame. Could not find ByteBuffer associated with the image "
+//                                + "data from the camera."
+//                    )
+//                    return
+//                }
+                pendingFrameData = data//[index]
+                this.imageRotation = imageRotation
+                // Notify the processor thread if it is waiting on the next frame (see below).
+                condition.signalAll()
+            }
+        }
+
+        /**
+         * As long as the processing thread is active, this executes detection on frames continuously.
+         * The next pending frame is either immediately available or hasn't been received yet. Once it
+         * is available, we transfer the frame info to local variables and run detection on that frame.
+         * It immediately loops back for the next frame without pausing.
+         *
+         *
+         * If detection takes longer than the time in between new frames from the camera, this will
+         * mean that this loop will run without ever waiting on a frame, avoiding any context switching
+         * or frame acquisition time latency.
+         *
+         *
+         * If you find that this is using more CPU than you'd like, you should probably decrease the
+         * FPS setting above to allow for some idle time in between frames.
+         */
+        @SuppressLint("InlinedApi")
+        override fun run() {
+            var data: FirebaseVisionImage? = null
+            while (true) {
+                lock.withLock {
+                    while (active && pendingFrameData == null) {
+                        try { // Wait for the next frame to be received from the camera, since we
+                            // don't have it yet.
+                            condition.await()
+                        } catch (e: InterruptedException) {
+                            Log.d("run", "Frame processing loop terminated.", e)
+                            return
+                        }
+                    }
+                    if (!active) { // Exit the loop once this camera source is stopped or released.  We check
+                        // this here, immediately after the wait() above, to handle the case where
+                        // setActive(false) had been called, triggering the termination of this
+                        // loop.
+                        return
+                    }
+                    // Hold onto the frame data locally, so that we can use this for detection
+                    // below.  We need to clear pendingFrameData to ensure that this buffer isn't
+                    // recycled back to the camera before we are done using that data.
+                    data = pendingFrameData
+                    pendingFrameData = null
+                }
+                // The code below needs to run outside of synchronization, because this will allow
+    // the camera to add pending frame(s) while we are running detection on the current
+    // frame.
+                try {
+                    data?.let {
+
+                        processorLock.withLock {
+                            Log.d("run", "Process an image")
+                            frameProcessor?.process(
+                                /*resizeBitmap(it.bitmap)*/
+                                it,
+                                FrameMetadata.Builder()
+                                .setWidth(viewFinder.display.width)
+                                .setHeight(viewFinder.display.height)
+                                .setRotation(imageRotation)
+                                .setCameraFacing(lensFacing.ordinal)
+                                .build(),
+                                graphicOverlay
+                            )
+//                        frameProcessor?.process(
+//                            data,
+//                            FrameMetadata.Builder()
+//                                .setWidth(viewFinder.display.width)
+//                                .setHeight(viewFinder.display.height)
+//                                .setRotation(imageRotation)
+//                                .setCameraFacing(1)
+//                                .build(),
+//                            graphicOverlay
+//                        )
+                        }
+                    }
+                } catch (t: java.lang.Exception) {
+                    t.printStackTrace()
+                } finally {
+//                    camera.addCallbackBuffer(data!!.array())
+                }
+            }
         }
     }
 
@@ -393,6 +591,12 @@ class CameraFragment : Fragment()/*, CoroutineScope */{
         val data = ByteArray(remaining())
         get(data)   // Copy the buffer into a byte array
         return data // Return the byte array
+    }
+
+
+
+    private fun showToast(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 
     /**

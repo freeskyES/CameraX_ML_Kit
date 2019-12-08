@@ -16,6 +16,7 @@ package com.tenqube.firebase_ml_kit.facedetection.common;
 import android.graphics.Bitmap;
 
 import com.google.firebase.ml.common.FirebaseMLException;
+import com.google.firebase.ml.vision.common.FirebaseVisionImage;
 import com.tenqube.firebase_ml_kit.facedetection.common.FrameMetadata;
 import com.tenqube.firebase_ml_kit.facedetection.common.GraphicOverlay;
 
@@ -30,6 +31,11 @@ public interface VisionImageProcessor {
 
   /** Processes the bitmap images. */
   void process(Bitmap bitmap, GraphicOverlay graphicOverlay);
+
+  void process(/*Bitmap bitmap,*/
+          FirebaseVisionImage firebaseVisionImage,
+          FrameMetadata frameMetadata,
+          GraphicOverlay graphicOverlay);
 
   void process(Bitmap bitmap, FrameMetadata frameMetadata, GraphicOverlay graphicOverlay);
 

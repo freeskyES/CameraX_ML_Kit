@@ -1,5 +1,6 @@
 package com.tenqube.firebase_ml_kit.facedetection
 
+import android.media.Image
 import android.util.Log
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -18,6 +19,7 @@ import kotlin.collections.ArrayList
 import kotlin.coroutines.CoroutineContext
 
 typealias YourImageListener = (image: FirebaseVisionImage,
+                               inputImage: Image?,
                                data: ByteBuffer,
                                imageRotation: Int) -> Unit
 
@@ -56,19 +58,19 @@ class YourImageAnalyzer(listener: YourImageListener? = null) : ImageAnalysis.Ana
 
 
             // Keep track of frames analyzed
-            val currentTime = System.currentTimeMillis()
-            frameTimestamps.push(currentTime)
-
-            // Compute the FPS using a moving average
-            while (frameTimestamps.size >= frameRateWindow) frameTimestamps.removeLast()
-            val timestampFirst = frameTimestamps.peekFirst() ?: currentTime
-            val timestampLast = frameTimestamps.peekLast() ?: currentTime
-            framesPerSecond = 1.0 / ((timestampFirst - timestampLast) /
-                    frameTimestamps.size.coerceAtLeast(1).toDouble()) * 1000.0
-
-            // Calculate the average luma no more often than every second
-            if (frameTimestamps.first - lastAnalyzedTimestamp >= TimeUnit.SECONDS.toMillis(1)) {
-                lastAnalyzedTimestamp = frameTimestamps.first
+//            val currentTime = System.currentTimeMillis()
+//            frameTimestamps.push(currentTime)
+//
+//            // Compute the FPS using a moving average
+//            while (frameTimestamps.size >= frameRateWindow) frameTimestamps.removeLast()
+//            val timestampFirst = frameTimestamps.peekFirst() ?: currentTime
+//            val timestampLast = frameTimestamps.peekLast() ?: currentTime
+//            framesPerSecond = 1.0 / ((timestampFirst - timestampLast) /
+//                    frameTimestamps.size.coerceAtLeast(1).toDouble()) * 1000.0
+//
+//            // Calculate the average luma no more often than every second
+//            if (frameTimestamps.first - lastAnalyzedTimestamp >= TimeUnit.SECONDS.toMillis(1)) {
+//                lastAnalyzedTimestamp = frameTimestamps.first
 
                 val mediaImage = imageProxy?.image
                 val imageRotation = degreesToFirebaseRotation(degrees)
@@ -80,10 +82,10 @@ class YourImageAnalyzer(listener: YourImageListener? = null) : ImageAnalysis.Ana
 
                 // Since format in ImageAnalysis is YUV, image.planes[0] contains the luminance
                 //  plane
-                val buffer = imageProxy.planes[0].buffer
+                val byteBuffer = imageProxy.planes[0].buffer
 
                 // Extract image data from callback object
-                val data = buffer.toByteArray()
+//                val byteArray = byteBuffer.toByteArray()
 
 //                // Convert the data into an array of pixel values ranging 0-255
 //                val pixels = data.map { it.toInt() and 0xFF }
@@ -96,10 +98,10 @@ class YourImageAnalyzer(listener: YourImageListener? = null) : ImageAnalysis.Ana
 
                 // Call all listeners with new value
                 listeners.forEach {
-                    Log.i("analyze","$image $buffer $imageRotation")
-                    it(image, buffer, imageRotation)
+                    Log.i("analyze","$image $byteBuffer $imageRotation")
+                    it(image, mediaImage, byteBuffer, imageRotation)
                 }
-            }
+//            }
 
 
 //            }

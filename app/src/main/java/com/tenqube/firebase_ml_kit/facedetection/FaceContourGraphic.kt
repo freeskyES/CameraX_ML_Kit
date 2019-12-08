@@ -9,7 +9,7 @@ import com.google.firebase.ml.vision.face.FirebaseVisionFaceLandmark
 import com.tenqube.firebase_ml_kit.facedetection.common.GraphicOverlay
 
 /** Graphic instance for rendering face contours graphic overlay view.  */
-class FaceContourGraphic(overlay: GraphicOverlay, private val firebaseVisionFace: FirebaseVisionFace?) :
+class FaceContourGraphic(overlay: GraphicOverlay, private var firebaseVisionFace: FirebaseVisionFace?) :
     GraphicOverlay.Graphic(overlay) {
 
     private val facePositionPaint: Paint
@@ -30,6 +30,11 @@ class FaceContourGraphic(overlay: GraphicOverlay, private val firebaseVisionFace
         boxPaint.color = selectedColor
         boxPaint.style = Paint.Style.STROKE
         boxPaint.strokeWidth = BOX_STROKE_WIDTH
+    }
+
+    fun updateFace(face: FirebaseVisionFace) {
+        firebaseVisionFace = face
+        postInvalidate()
     }
 
     /** Draws the face annotations for position on the supplied canvas.  */

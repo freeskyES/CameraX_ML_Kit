@@ -10,6 +10,7 @@ import android.hardware.Camera.CameraInfo;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.camera.core.CameraX;
 
 import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata;
 
@@ -64,7 +65,7 @@ public class BitmapUtils {
 
         // Rotate the image back to straight.}
         matrix.postRotate(rotationDegree);
-        if (facing == CameraInfo.CAMERA_FACING_BACK) {
+        if (facing == CameraX.LensFacing.BACK.ordinal()) {
             return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
         } else {
             // Mirror the image along X axis for front-facing camera image.
