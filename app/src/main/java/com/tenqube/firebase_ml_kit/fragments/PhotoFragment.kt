@@ -38,6 +38,7 @@ class PhotoFragment internal constructor() : Fragment() {
         val args = arguments ?: return
         val resource = args.getString(FILE_NAME_KEY)?.let { File(it) } ?: R.drawable.ic_photo
         Glide.with(view).load(resource).into(view as ImageView)
+
     }
 
     companion object {

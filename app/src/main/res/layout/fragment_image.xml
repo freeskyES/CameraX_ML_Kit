@@ -17,6 +17,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black"
@@ -24,6 +25,7 @@
 
     <ImageView
         android:id="@+id/image_view"
+        android:scaleType="fitStart"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
@@ -60,47 +62,55 @@
             android:background="@android:color/transparent"
             app:srcCompat="@drawable/ic_back" />
 
-        <ImageButton
-            android:id="@+id/share_button"
-            android:contentDescription="@string/share_button_alt"
+        <Button
+            android:id="@+id/put_bg_image_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Put image"
+            android:layout_marginStart="16dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/get_bg_btn"/>
+
+        <Button
+            android:id="@+id/get_bg_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="32dp"
+            android:text="get bg"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent"
-            android:layout_marginEnd="@dimen/margin_xlarge"
-            android:layout_marginBottom="@dimen/margin_small"
-            android:layout_width="@dimen/round_button_small"
-            android:layout_height="@dimen/round_button_small"
-            android:scaleType="fitCenter"
-            android:background="@android:color/transparent"
-            app:srcCompat="@drawable/ic_share" />
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <Button
+            android:id="@+id/put_face_image_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Put image"
+            android:layout_marginStart="4dp"
+            app:layout_constraintStart_toEndOf="@+id/put_bg_image_btn"
+            app:layout_constraintBottom_toTopOf="@id/get_face_btn"/>
+
+        <Button
+            android:id="@+id/get_face_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="32dp"
+            android:text="get face"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/get_bg_btn" />
 
         <ImageButton
-            android:id="@+id/delete_button"
-            android:contentDescription="@string/delete_button_alt"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent"
-            android:layout_marginStart="@dimen/margin_xlarge"
-            android:layout_marginBottom="@dimen/margin_small"
-            android:layout_width="@dimen/round_button_small"
-            android:layout_height="@dimen/round_button_small"
-            android:scaleType="fitCenter"
-            android:background="@android:color/transparent"
-            app:srcCompat="@drawable/ic_delete" />
-
-        <ImageButton
-            android:id="@+id/cut_face_button"
-            android:contentDescription="@string/delete_button_alt"
-            app:layout_constraintBottom_toBottomOf="parent"
+            android:id="@+id/change_face_btn"
             android:layout_marginEnd="32dp"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintRight_toRightOf="parent"
-            android:layout_marginStart="@dimen/margin_xlarge"
             android:layout_marginBottom="@dimen/margin_small"
             android:layout_width="@dimen/round_button_small"
             android:layout_height="@dimen/round_button_small"
             android:scaleType="fitCenter"
             android:background="@android:color/transparent"
-            app:srcCompat="@drawable/ic_delete" />
+            app:srcCompat="@drawable/ic_change" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

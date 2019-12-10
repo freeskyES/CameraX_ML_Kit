@@ -16,7 +16,10 @@ package com.tenqube.firebase_ml_kit.facedetection.common;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.util.AttributeSet;
+import android.util.Size;
 import android.view.View;
+
+import androidx.camera.core.CameraX;
 
 import com.google.android.gms.vision.CameraSource;
 
@@ -45,10 +48,13 @@ import java.util.List;
 public class GraphicOverlay extends View {
   private final Object lock = new Object();
   private int previewWidth;
-  private float widthScaleFactor = 1.0f;
   private int previewHeight;
+  private float widthScaleFactor = 1.0f;
   private float heightScaleFactor = 1.0f;
-  private int facing = CameraSource.CAMERA_FACING_BACK;
+  private float widthScaleFactorForCenter = 1.0f;
+  private float heightScaleFactorForCenter = 1.0f;
+  private Size imageSize = new Size(0, 0);
+  private int facing = CameraX.LensFacing.BACK.ordinal();
   private final List<Graphic> graphics = new ArrayList<>();
 
   /**
@@ -90,6 +96,15 @@ public class GraphicOverlay extends View {
       return vertical * overlay.heightScaleFactor;
     }
 
+    public float scaleXForCenter(float horizontal) {
+      return horizontal * overlay.widthScaleFactorForCenter;
+    }
+
+    /** Adjusts a vertical value of the supplied value from the preview scale to the view scale. */
+    public float scaleYForCenter(float vertical) {
+      return vertical * overlay.heightScaleFactorForCenter;
+    }
+
     /** Returns the application context of the app. */
     public Context getApplicationContext() {
       return overlay.getContext().getApplicationContext();
@@ -99,7 +114,7 @@ public class GraphicOverlay extends View {
      * Adjusts the x coordinate from the preview's coordinate system to the view coordinate system.
      */
     public float translateX(float x) {
-      if (overlay.facing == CameraSource.CAMERA_FACING_FRONT) {
+      if (overlay.facing == CameraX.LensFacing.FRONT.ordinal()) {
         return overlay.getWidth() - scaleX(x);
       } else {
         return scaleX(x);
@@ -111,6 +126,18 @@ public class GraphicOverlay extends View {
      */
     public float translateY(float y) {
       return scaleY(y);
+    }
+
+
+    public float translateXForCenter(float x) {
+      if (overlay.facing == CameraX.LensFacing.FRONT.ordinal()) {
+        return overlay.getWidth() - scaleXForCenter(x);
+      } else {
+        return scaleXForCenter(x);
+      }
+    }
+    public float translateYForCenter(float y) {
+      return scaleYForCenter(y);
     }
 
     public void postInvalidate() {
@@ -149,11 +176,12 @@ public class GraphicOverlay extends View {
    * Sets the camera attributes for size and facing direction, which informs how to transform image
    * coordinates later.
    */
-  public void setCameraInfo(int previewWidth, int previewHeight, int facing) {
+  public void setCameraInfo(int previewWidth, int previewHeight, int facing, Size imageSize) {
     synchronized (lock) {
       this.previewWidth = previewWidth;
       this.previewHeight = previewHeight;
       this.facing = facing;
+      this.imageSize = imageSize;
     }
     postInvalidate();
   }
@@ -167,6 +195,9 @@ public class GraphicOverlay extends View {
       if ((previewWidth != 0) && (previewHeight != 0)) {
         widthScaleFactor = (float) getWidth() / previewWidth;
         heightScaleFactor = (float) getHeight() / previewHeight;
+
+        widthScaleFactorForCenter = (float) getWidth() / imageSize.getWidth();//1440; //1080;//previewWidth;
+        heightScaleFactorForCenter = (float) getHeight() / imageSize.getHeight();//1440; //2094;//1440;//previewHeight;
       }
 
       for (Graphic graphic : graphics) {

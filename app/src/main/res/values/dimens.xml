@@ -29,7 +29,7 @@
     <dimen name="stroke_medium">8dp</dimen>
     <dimen name="stroke_large">12dp</dimen>
 
-    <dimen name="round_button_small">32dp</dimen>
+    <dimen name="round_button_small">38dp</dimen>
     <dimen name="round_button_medium">64dp</dimen>
     <dimen name="round_button_large">92dp</dimen>
 

@@ -28,16 +28,30 @@ import androidx.fragment.app.FragmentStatePagerAdapter
 import androidx.viewpager.widget.ViewPager
 import java.io.File
 import android.content.Intent
+import android.graphics.*
 import android.media.MediaScannerConnection
 import android.os.Build
 import android.webkit.MimeTypeMap
+import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.FileProvider
 import com.android.example.cameraxbasic.utils.padWithDisplayCutout
 import androidx.appcompat.app.AlertDialog
+import androidx.core.graphics.drawable.toBitmap
+import androidx.core.net.toUri
+import androidx.core.view.drawToBitmap
 import com.android.example.cameraxbasic.utils.showImmersive
+import com.bumptech.glide.Glide
+import com.google.firebase.ml.vision.FirebaseVision
+import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.ml.vision.face.FirebaseVisionFace
+import com.google.firebase.ml.vision.face.FirebaseVisionFaceContour
+import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import com.tenqube.firebase_ml_kit.BuildConfig
 import com.tenqube.firebase_ml_kit.R
+import com.tenqube.firebase_ml_kit.facedetection.FaceContourGraphic
+import com.tenqube.firebase_ml_kit.facedetection.common.GraphicOverlay
+import java.util.ArrayList
 
 
 val EXTENSION_WHITELIST = arrayOf("JPG")
@@ -48,7 +62,7 @@ class GalleryFragment internal constructor() : Fragment() {
     companion object {
         private const val ARG = "ARG"
 
-        fun newInstance(url: String) = CameraFragment().apply {
+        fun newInstance(url: String) = GalleryFragment().apply {
             arguments = Bundle().apply {
                 putString(ARG, url)
             }
@@ -56,6 +70,11 @@ class GalleryFragment internal constructor() : Fragment() {
 
     }
     private lateinit var mediaList: MutableList<File>
+
+//    private lateinit var mediaViewPager: ViewPager
+//    private lateinit var mediaViewPagerAdapter: MediaPagerAdapter
+    private lateinit var graphicOverlay: GraphicOverlay
+    private lateinit var imageView: ImageView
 
     /** Adapter class used to present a fragment containing one photo or video as a page */
     inner class MediaPagerAdapter(fm: FragmentManager) : FragmentStatePagerAdapter(fm) {
@@ -93,10 +112,11 @@ class GalleryFragment internal constructor() : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // Populate the ViewPager and implement a cache of two media items
-        val mediaViewPager = view.findViewById<ViewPager>(R.id.photo_view_pager).apply {
-            offscreenPageLimit = 2
-            adapter = MediaPagerAdapter(childFragmentManager)
-        }
+//        mediaViewPager = view.findViewById<ViewPager>(R.id.photo_view_pager).apply {
+//            offscreenPageLimit = 2
+//            mediaViewPagerAdapter = MediaPagerAdapter(childFragmentManager)
+//            adapter = mediaViewPagerAdapter
+//        }
 
         // Make sure that the cutout "safe area" avoids the screen notch if any
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -107,14 +127,14 @@ class GalleryFragment internal constructor() : Fragment() {
         // Handle back button press
         view.findViewById<ImageButton>(R.id.back_button).setOnClickListener {
             activity?.let{ it.supportFragmentManager.beginTransaction()
-                .replace(R.id.container, CameraFragment.newInstance())
+                .replace(R.id.container, CameraFragment2.newInstance())
                 .commitNow()}
         }
 
         // Handle share button press
         view.findViewById<ImageButton>(R.id.share_button).setOnClickListener {
             // Make sure that we have a file to share
-            mediaList.getOrNull(mediaViewPager.currentItem)?.let { mediaFile ->
+            mediaList.getOrNull(mediaList.lastIndex)?.let { mediaFile ->
 
                 // Create a sharing intent
                 val intent = Intent().apply {
@@ -143,7 +163,7 @@ class GalleryFragment internal constructor() : Fragment() {
                     .setMessage(getString(R.string.delete_dialog))
                     .setIcon(android.R.drawable.ic_dialog_alert)
                     .setPositiveButton(android.R.string.yes) { _, _ ->
-                        mediaList.getOrNull(mediaViewPager.currentItem)?.let { mediaFile ->
+                        mediaList.getOrNull(mediaList.lastIndex/*mediaViewPager.currentItem*/)?.let { mediaFile ->
 
                             // Delete current photo
                             mediaFile.delete()
@@ -153,8 +173,8 @@ class GalleryFragment internal constructor() : Fragment() {
                                     view.context, arrayOf(mediaFile.absolutePath), null, null)
 
                             // Notify our view pager
-                            mediaList.removeAt(mediaViewPager.currentItem)
-                            mediaViewPager.adapter?.notifyDataSetChanged()
+                            mediaList.removeAt(/*mediaViewPager.currentItem*/mediaList.lastIndex)
+//                            mediaViewPager.adapter?.notifyDataSetChanged()
 
                             // If all photos have been deleted, return to camera
                             if (mediaList.isEmpty()) {
@@ -165,5 +185,107 @@ class GalleryFragment internal constructor() : Fragment() {
                     .setNegativeButton(android.R.string.no, null)
                     .create().showImmersive()
         }
+
+        graphicOverlay = view.findViewById(R.id.fireFaceOverlay)
+        imageView = view.findViewById(R.id.image_view)
+//        mediaList.getOrNull(mediaList.lastIndex)?.let{
+        context?.let{
+            val testImage = it.resources.getDrawable(R.drawable.test_image)
+
+            Glide.with(view).load(testImage).into(imageView)
+        }
+
+
+//        }
+
+        view.findViewById<ImageButton>(R.id.cut_face_button).setOnClickListener {
+            cropImage()
+        }
+    }
+
+    private fun cropImage() {
+        mediaList.getOrNull(mediaList.lastIndex)?.let { mediaFile ->
+            context?.let {context ->
+
+//                val image = FirebaseVisionImage.fromFilePath(context, mediaFile.toUri())
+
+                val image = FirebaseVisionImage.fromBitmap(imageView.drawToBitmap())
+                runFaceContourDetectionForImage(mediaFile, image)
+
+            }
+        }
+
+    }
+
+    private fun runFaceContourDetectionForImage(file: File, firebaseVisionImage: FirebaseVisionImage) {
+        try {
+            val image = firebaseVisionImage
+            val options = FirebaseVisionFaceDetectorOptions.Builder()
+                .setPerformanceMode(FirebaseVisionFaceDetectorOptions.FAST)
+                .setContourMode(FirebaseVisionFaceDetectorOptions.ALL_CONTOURS)
+                .build()
+            val detector =
+                FirebaseVision.getInstance().getVisionFaceDetector(options)
+            detector.detectInImage(image)
+                .addOnSuccessListener { faces ->
+                    processFaceContourDetectionResultForImage(file, faces)
+                }
+                .addOnFailureListener { e ->
+                    // Task failed with an exception
+                    e.printStackTrace()
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+    }
+
+    private fun processFaceContourDetectionResultForImage(file: File, faces: List<FirebaseVisionFace>) { // Task completed successfully
+        if (faces.isEmpty()) {
+            return
+        }
+        graphicOverlay.clear()
+        for (i in faces.indices) {
+            val face = faces[i]
+//            val contour = face.getContour(FirebaseVisionFaceContour.FACE)
+
+            val faceGraphic = FaceContourGraphic(graphicOverlay, face) {
+                setResultImage(file, it)
+            }
+
+            graphicOverlay.add(faceGraphic)
+//            faceGraphic.updateFace(face)
+        }
+    }
+
+    private fun setResultImage(file: File, points: ArrayList<FaceContourGraphic.FaceContourData>) {
+
+
+        val bitmap2 = BitmapFactory.decodeFile(file.path) //BitmapFactory.decodeResource(getResources(),R.drawable.gallery_12);
+
+        val resultingImage = Bitmap.createBitmap(imageView.width,
+            imageView.height, bitmap2.config
+        )
+
+        val canvas = Canvas(resultingImage)
+        val paint = Paint()
+        paint.isAntiAlias = true
+
+        val path = Path()
+
+        points.forEach {
+            path.lineTo(it.px, it.py)
+        }
+
+        canvas.drawPath(path, paint)
+//        if (crop) {
+//        paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.SRC_IN))
+
+//        } else {
+            paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.SRC_OUT))
+//        }
+        canvas.drawBitmap(bitmap2, 0.toFloat(), 0.toFloat(), paint)
+        imageView.setImageBitmap(resultingImage)
+
     }
 }

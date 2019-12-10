@@ -12,6 +12,7 @@ import android.view.KeyEvent
 import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.Toast
 import androidx.camera.core.CameraX
 import androidx.camera.core.Preview
@@ -21,6 +22,9 @@ import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.android.example.cameraxbasic.utils.FLAGS_FULLSCREEN
 import com.tenqube.firebase_ml_kit.fragments.CameraFragment
+import com.tenqube.firebase_ml_kit.fragments.CameraFragment2
+import com.tenqube.firebase_ml_kit.fragments.GalleryFragment
+import com.tenqube.firebase_ml_kit.fragments.ImageFragment
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
 import java.util.concurrent.Executors
@@ -49,11 +53,28 @@ class MainActivity : AppCompatActivity() {
         // Request camera permissions
         if (allPermissionsGranted()) {
 //            viewFinder.post { startCamera() }
-            openCamera()
+//            openCamera()
 
         } else {
             ActivityCompat.requestPermissions(
                 this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
+        }
+
+
+        findViewById<Button>(R.id.image).setOnClickListener {
+            openImage()
+        }
+
+        findViewById<Button>(R.id.camera).setOnClickListener {
+            openCamera()
+        }
+
+        findViewById<Button>(R.id.camera2).setOnClickListener {
+            openCamera2()
+        }
+
+        findViewById<Button>(R.id.camera3).setOnClickListener {
+            openGallery()
         }
 
 //        // Every time the provided texture view changes, recompute layout
@@ -123,7 +144,7 @@ class MainActivity : AppCompatActivity() {
         requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
-                openCamera()
+//                openCamera()
             } else {
                 Toast.makeText(this,
                     "Permissions not granted by the user.",
@@ -139,6 +160,26 @@ class MainActivity : AppCompatActivity() {
             .commitNow()
     }
 
+    private fun openCamera2() {
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.container, CameraFragment2.newInstance())
+            .commitNow()
+    }
+
+    private fun openGallery() {
+
+        supportFragmentManager.beginTransaction()
+            .add(R.id.container, GalleryFragment.newInstance(getOutputDirectory(this).absolutePath))
+            .commitNow()
+    }
+
+    private fun openImage() {
+
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.container, ImageFragment.newInstance(getOutputDirectory(this).absolutePath))
+            .commitNow()
+    }
+
     /**
      * Check if all permission specified in the manifest have been granted
      */
@@ -151,9 +192,9 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // Before setting full screen flags, we must wait a bit to let UI settle; otherwise, we may
         // be trying to set app to immersive mode before it's ready and the flags do not stick
-        container.postDelayed({
-            container.systemUiVisibility = FLAGS_FULLSCREEN
-        }, IMMERSIVE_FLAG_TIMEOUT)
+//        container.postDelayed({
+//            container.systemUiVisibility = FLAGS_FULLSCREEN
+//        }, IMMERSIVE_FLAG_TIMEOUT)
     }
 
     companion object {
