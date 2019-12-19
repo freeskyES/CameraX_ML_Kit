@@ -4,17 +4,18 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.Log
-import android.util.Size
 import com.google.firebase.ml.vision.face.FirebaseVisionFace
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceContour
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceLandmark
 import com.tenqube.firebase_ml_kit.facedetection.common.GraphicOverlay
-import kotlin.math.abs
 
-typealias FaceContourListener = (points: ArrayList<FaceContourGraphic.FaceContourData>) -> Unit
+typealias FaceContourListener = (points: ArrayList<FaceContourGraphic.FaceContourData>,
+                                 faceInfo: FaceContourGraphic.FaceDetectInfo
+) -> Unit
 
 /** Graphic instance for rendering face contours graphic overlay view.  */
-class FaceContourGraphic(overlay: GraphicOverlay, private var firebaseVisionFace: FirebaseVisionFace?,
+class FaceContourGraphic(overlay: GraphicOverlay,
+                         private var firebaseVisionFace: FirebaseVisionFace?,
                          private var listener: FaceContourListener? = null) :
     GraphicOverlay.Graphic(overlay) {
 
@@ -90,7 +91,7 @@ class FaceContourGraphic(overlay: GraphicOverlay, private var firebaseVisionFace
         }
         listener?.let {
             list.add(list[0])
-            it(list)
+            it(list, FaceDetectInfo(left, top, right-left, bottom-top, x, y))
             return
         }
 
@@ -169,4 +170,11 @@ class FaceContourGraphic(overlay: GraphicOverlay, private var firebaseVisionFace
 
     data class FaceContourData(val px: Float,
                                val py: Float)
+
+    data class FaceDetectInfo(val left: Float,
+                              val top: Float,
+                              val rectWidth: Float,
+                              val rectHeight: Float,
+                              val centerPx: Float,
+                              val centerPy: Float)
 }

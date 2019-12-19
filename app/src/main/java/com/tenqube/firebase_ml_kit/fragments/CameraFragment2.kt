@@ -339,8 +339,8 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
             val contour = face.getContour(FirebaseVisionFaceContour.FACE)
 
 
-            val faceGraphic = FaceContourGraphic(graphicOverlay, face) {
-                setResultImage(file, it)
+            val faceGraphic = FaceContourGraphic(graphicOverlay, face) { points, faceInfo ->
+                setResultImage(file, points)
 
 
             }

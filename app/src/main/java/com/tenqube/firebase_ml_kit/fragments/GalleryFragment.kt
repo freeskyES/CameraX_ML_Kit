@@ -249,8 +249,8 @@ class GalleryFragment internal constructor() : Fragment() {
             val face = faces[i]
 //            val contour = face.getContour(FirebaseVisionFaceContour.FACE)
 
-            val faceGraphic = FaceContourGraphic(graphicOverlay, face) {
-                setResultImage(file, it)
+            val faceGraphic = FaceContourGraphic(graphicOverlay, face) { points, faceInfo ->
+                setResultImage(file, points)
             }
 
             graphicOverlay.add(faceGraphic)
