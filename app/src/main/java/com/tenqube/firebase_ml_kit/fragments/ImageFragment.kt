@@ -19,6 +19,7 @@ package com.tenqube.firebase_ml_kit.fragments
 import android.graphics.*
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.util.Pair
 import android.view.LayoutInflater
 import android.view.View
@@ -59,7 +60,10 @@ class ImageFragment internal constructor() : Fragment() {
     private var originBitmapForBg : Bitmap? = null
     private var bgBitmap : Bitmap? = null
 
-    private var resultBitmap1: Bitmap?= null
+    private var bgFaceInfo: FaceContourGraphic.FaceDetectInfo? = null
+    private var myFaceInfo: FaceContourGraphic.FaceDetectInfo? = null
+
+    private var finalImageBitmap: Bitmap?= null
 
 
     companion object {
@@ -127,8 +131,10 @@ class ImageFragment internal constructor() : Fragment() {
         view.findViewById<Button>(R.id.get_bg_btn).setOnClickListener {
             originBitmapForBg?.let{
                 getVisionPoints(it, object :CallbackGraphic {
-                    override fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>) {
+                    override fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>,
+                                           faceInfo: FaceContourGraphic.FaceDetectInfo) {
                         getBgBitmap(points)
+                        bgFaceInfo = faceInfo
                     }
                 })
             }
@@ -136,6 +142,8 @@ class ImageFragment internal constructor() : Fragment() {
 
         view.findViewById<Button>(R.id.put_face_image_btn).setOnClickListener {
             try {
+                graphicOverlay.clear()
+
                 val file = mediaList[0]
                 val faceImage = BitmapFactory.decodeFile(file.absolutePath)
                 originBitmapForFace= resizeImage(faceImage)
@@ -147,7 +155,9 @@ class ImageFragment internal constructor() : Fragment() {
         view.findViewById<Button>(R.id.get_face_btn).setOnClickListener {
             originBitmapForFace?.let {
                 getVisionPoints(it, object :CallbackGraphic {
-                    override fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>) {
+                    override fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>,
+                                           faceInfo: FaceContourGraphic.FaceDetectInfo) {
+                        myFaceInfo = faceInfo
                         getFaceBitmap(points)
                     }
                 })
@@ -156,40 +166,49 @@ class ImageFragment internal constructor() : Fragment() {
         }
 
         view.findViewById<ImageButton>(R.id.change_face_btn).setOnClickListener {
-            bgBitmap?.let { bg -> faceBitmap?.let { face -> changeFace(bg, face) } }
+            bgBitmap?.let { bg -> faceBitmap?.let { face -> bgFaceInfo?.let { bgFace -> myFaceInfo?.let { myFace -> changeFace(bg, face, bgFace, myFace) } } } }
         }
     }
-    private fun changeFace(bgBitmap: Bitmap, faceBitmap: Bitmap) {
 
-        val resultImage = faceBitmap.copy(bgBitmap.config, true)
+    private fun changeFace(bgBitmap: Bitmap, faceBitmap: Bitmap, bgFaceInfo: FaceContourGraphic.FaceDetectInfo, myFaceInfo: FaceContourGraphic.FaceDetectInfo) {
+        graphicOverlay.clear()
 
-//        val canvas = Canvas(resultingImage)
-//        canvas.drawARGB(0, 0, 0, 0)
-//
-//        val paint = Paint()
-//        paint.isAntiAlias = true
-//
-//        val rect = Rect(0, 0, origin.width, origin.height)
-//
-//        context?.let {
-//            val color = ContextCompat.getColor(it, R.color.grey)
-//            paint.color = color
-//        }
-//
-//        val path = Path()
-//
-//        points.forEach {
-//            path.lineTo(it.px, it.py)
-//        }
-//        canvas.drawPath(path, paint)
-////            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-//
-//        paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.SRC_OUT))
-//
-//        canvas.drawBitmap(origin/*bitmap2*/, rect, rect, paint)
+        val resultImage = bgBitmap.copy(bgBitmap.config, true)
+        Log.i("changeFace","bgBitmap : ${bgBitmap.width} ${bgBitmap.height}")
+        Log.i("changeFace","bgface : $bgFaceInfo")
 
+        Log.i("changeFace","faceBitmap : ${faceBitmap.width} ${faceBitmap.height}")
+        // 얼굴 bg 사이즈에 맞게 resize
+//        val resizeFace = Bitmap.createScaledBitmap(faceBitmap, bgFaceInfo.rectWidth.toInt(), bgFaceInfo.rectHeight.toInt(), false)
+        val resizeFace = Bitmap.createScaledBitmap(faceBitmap, (bgFaceInfo.rectWidth*1.02).toInt(), (bgFaceInfo.rectHeight*1.02).toInt(), false) // 늘어날경우엔 true 로 해줘야 안깨진다
+        Log.i("changeFace","resize faceBitmap : ${resizeFace.width} ${resizeFace.height}")
+
+
+        val canvas = Canvas(resultImage)
+        val top = if (bgFaceInfo.top >= 16) bgFaceInfo.top - 16 else bgFaceInfo.top
+        val left = if (bgFaceInfo.left >= 2) bgFaceInfo.left - 2 else bgFaceInfo.left
+        canvas.drawBitmap(resizeFace, left, top, null)
+        finalImageBitmap = resultImage
+        Glide.with(imageView).load(finalImageBitmap).into(imageView)
 
     }
+
+//    fun getResizedBitmap(bm: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
+//        val width = bm.width
+//        val height = bm.height
+//        val scaleWidth = newWidth.toFloat() / width
+//        val scaleHeight = newHeight.toFloat() / height
+//        // CREATE A MATRIX FOR THE MANIPULATION
+//        val matrix = Matrix()
+//        // RESIZE THE BIT MAP
+//        matrix.postScale(scaleWidth, scaleHeight)
+//
+//        // "RECREATE" THE NEW BITMAP
+//        val resizedBitmap = Bitmap.createBitmap(
+//            bm, 0, 0, width, height, matrix, false)
+//        bm.recycle()
+//        return resizedBitmap
+//    }
 
     private fun goCameraFragment() {
         activity?.let {
@@ -206,13 +225,13 @@ class ImageFragment internal constructor() : Fragment() {
 
             override fun getVisionFaces(faces: List<FirebaseVisionFace>) {
                 processFaceContourDetectionResultForImage(faces, object :CallbackGraphic {
-                    override fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>) {
-                        callback.getPoints(points)
+                    override fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>,
+                                           faceInfo: FaceContourGraphic.FaceDetectInfo) {
+                        callback.getPoints(points, faceInfo)
                     }
                 })
             }
         })
-
     }
 
 
@@ -259,7 +278,6 @@ class ImageFragment internal constructor() : Fragment() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-
     }
 
     interface Callback {
@@ -267,10 +285,11 @@ class ImageFragment internal constructor() : Fragment() {
     }
 
     interface CallbackGraphic {
-        fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>)
+        fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>,
+                      faceInfo: FaceContourGraphic.FaceDetectInfo)
     }
 
-    private fun processFaceContourDetectionResultForImage(faces: List<FirebaseVisionFace>, callback: CallbackGraphic ) { // Task completed successfully
+    private fun processFaceContourDetectionResultForImage(faces: List<FirebaseVisionFace>, callback: CallbackGraphic) { // Task completed successfully
         if (faces.isEmpty()) {
             Toast.makeText(context, "not found", Toast.LENGTH_SHORT).show()
             return
@@ -279,67 +298,16 @@ class ImageFragment internal constructor() : Fragment() {
         for (i in faces.indices) {
             val face = faces[i]
 
-            val faceGraphic = FaceContourGraphic(graphicOverlay, face) {
+            val faceGraphic = FaceContourGraphic(graphicOverlay, face) { points, faceInfo ->
 //                originBitmapForBg = firebaseVisionImage.bitmap
 //                getBgBitmap(it)
-                callback.getPoints(it)
+                callback.getPoints(points, faceInfo)
             }
 
             graphicOverlay.add(faceGraphic)
             faceGraphic.updateFace(face)
         }
     }
-
-
-//    private fun setResultImage(points: ArrayList<FaceContourGraphic.FaceContourData>, firebaseVisionImage: FirebaseVisionImage) {
-//
-//        bitmap?.let {bitmap ->
-//
-//            val bitmap2 = bitmap//firebaseVisionImage.bitmap//BitmapFactory.decodeResource(getResources(),R.drawable.gallery_12);
-//
-////            val resultingImage = bitmap2.copy(bitmap2.config, true)  // 얼굴 외 의 사진 얻을경우 (원본 복사)
-//            val resultingImage = Bitmap.createBitmap(bitmap2.width,
-//                bitmap2.height, Bitmap.Config.ARGB_8888
-//            )
-//
-//            val canvas = Canvas(resultingImage)
-//            canvas.drawARGB(0, 0, 0, 0)
-//            val paint = Paint()
-//            paint.isAntiAlias = true
-//
-//            val rect = Rect(0, 0, bitmap2.width, bitmap2.height)
-//
-//            context?.let {
-//                val color = ContextCompat.getColor(it, R.color.grey)
-//                paint.color = color
-//            }
-//
-//            val path = Path()
-//
-//            points.forEach {
-//                path.lineTo(it.px, it.py)
-//                canvas.drawCircle(it.px, it.py, 6.0f, Paint(Color.BLUE))
-//            }
-////            canvas.clipPath(path)
-//            canvas.drawPath(path, paint)
-////        if (crop) {
-//            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-//
-////        } else {
-////             paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.SRC_OUT))
-////        }
-//
-//        canvas.drawBitmap(bitmap2/*bitmap2*/, rect, rect, paint)
-//
-////        canvas.drawBitmap(bitmap2/*bitmap2*/, 0.toFloat(), 0.toFloat(), paint)
-//
-//        resultBitmap1 = resultingImage
-//        Glide.with(imageView).load(resultingImage).into(imageView)
-//
-////        imageView.setImageBitmap(resultingImage)
-//        }
-//
-//    }
 
     private fun getFaceBitmap(points: ArrayList<FaceContourGraphic.FaceContourData>) {
 
@@ -373,8 +341,17 @@ class ImageFragment internal constructor() : Fragment() {
             paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
             canvas.drawBitmap(origin/*bitmap2*/, rect, rect, paint)
 
-            faceBitmap = resultingImage
-            Glide.with(imageView).load(resultingImage).into(imageView)
+
+            // 얼굴크기로 bitmap resize 하기
+            myFaceInfo?.run {
+                val result = Bitmap.createBitmap(resultingImage, this.left.toInt(), this.top.toInt(), this.rectWidth.toInt(), this.rectHeight.toInt())
+                faceBitmap = result
+                graphicOverlay.clear()
+                Glide.with(imageView).load(faceBitmap).into(imageView)
+            }
+
+//            faceBitmap = resultingImage
+//            Glide.with(imageView).load(resultingImage).into(imageView)
 
         }
     }
@@ -422,8 +399,6 @@ class ImageFragment internal constructor() : Fragment() {
     }
 
 
-//
-//
 //    private fun setResultImage(file: File, points: ArrayList<FaceContourGraphic.FaceContourData>) {
 //
 //

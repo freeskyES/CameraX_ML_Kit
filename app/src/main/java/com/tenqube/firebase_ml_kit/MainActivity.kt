@@ -48,7 +48,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-//        viewFinder = findViewById(R.id.view_finder)
 
         // Request camera permissions
         if (allPermissionsGranted()) {
