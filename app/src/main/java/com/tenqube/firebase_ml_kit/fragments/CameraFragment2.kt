@@ -27,6 +27,7 @@ import android.graphics.drawable.ColorDrawable
 import android.hardware.Camera
 import android.hardware.display.DisplayManager
 import android.media.Image
+import android.media.ImageReader
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
@@ -495,7 +496,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
             setTargetAspectRatio(screenAspectRatio)
             // Set initial target rotation, we will have to call this again if rotation changes
             // during the lifecycle of this use case
-            setTargetRotation(Surface.ROTATION_0)
+//            setTargetRotation(Surface.ROTATION_0)
             setTargetRotation(viewFinder.display.rotation)
         }.build()
 
@@ -504,7 +505,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
         // Setup image analysis pipeline that computes average pixel luminance in real time
         val analyzerConfig = ImageAnalysisConfig.Builder().apply {
             setLensFacing(lensFacing)
-            setTargetResolution(android.util.Size(viewFinder.display.height, viewFinder.display.width))
+            setTargetResolution(Size(viewFinder.display.height, viewFinder.display.width))
             // In our analysis, we care more about the latest image than analyzing *every* image
             setImageReaderMode(ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE)
             // Set initial target rotation, we will have to call this again if rotation changes
@@ -613,7 +614,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 
 
     private fun showToast(message: String) {
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        context?.let { Toast.makeText(it, message, Toast.LENGTH_SHORT).show() }
     }
 
     /**
@@ -685,6 +686,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
                 val metadata = Metadata().apply {
                     // Mirror image when using the front camera
                     isReversedHorizontal = lensFacing == CameraX.LensFacing.FRONT
+//                    location =
                 }
 
                 // Setup image capture listener which is triggered after photo has been taken
@@ -787,7 +789,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
     companion object {
         private const val TAG = "CameraXBasic"
         private const val FILENAME = "yyyy-MM-dd-HH-mm-ss-SSS"
-        private const val PHOTO_EXTENSION = ".jpg"
+        private const val PHOTO_EXTENSION = ".jpeg"
         private const val RATIO_4_3_VALUE = 4.0 / 3.0
         private const val RATIO_16_9_VALUE = 16.0 / 9.0
 

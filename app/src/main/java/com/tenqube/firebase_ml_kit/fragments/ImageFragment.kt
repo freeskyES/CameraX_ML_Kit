@@ -45,7 +45,7 @@ import java.io.File
 import java.util.*
 
 
-val EXTENSION_WHITELIST_1 = arrayOf("JPG")
+val EXTENSION_WHITELIST_1 = arrayOf("JPEG")
 
 /** Fragment used to present the user with a gallery of photos taken */
 class ImageFragment internal constructor() : Fragment() {
@@ -124,7 +124,7 @@ class ImageFragment internal constructor() : Fragment() {
         }
 
         view.findViewById<Button>(R.id.put_bg_image_btn).setOnClickListener {
-            val testImage = it.resources.getDrawable(R.drawable.test_model_2)
+            val testImage = it.resources.getDrawable(R.drawable.test_model_3)
             originBitmapForBg = resizeImage(testImage.toBitmap())
         }
 
@@ -145,7 +145,8 @@ class ImageFragment internal constructor() : Fragment() {
                 graphicOverlay.clear()
 
                 val file = mediaList[0]
-                val faceImage = BitmapFactory.decodeFile(file.absolutePath)
+
+                val faceImage = BitmapFactory.decodeFile(file.absolutePath) // TODO orientation 회전고려 안해줌 Glide 쓰기
                 originBitmapForFace= resizeImage(faceImage)
             } catch (e: Exception) {
                 e.printStackTrace()
