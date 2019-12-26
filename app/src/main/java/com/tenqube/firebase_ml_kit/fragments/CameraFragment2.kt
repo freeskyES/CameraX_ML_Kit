@@ -68,8 +68,12 @@ import com.tenqube.firebase_ml_kit.facedetection.FaceContourGraphic
 import com.tenqube.firebase_ml_kit.facedetection.YourImageAnalyzer
 import com.tenqube.firebase_ml_kit.facedetection.common.GraphicOverlay
 import com.tenqube.firebase_ml_kit.facedetection.common.VisionImageProcessor
+import com.tenqube.firebase_ml_kit.utils.FaceImageManager
+import com.tenqube.firebase_ml_kit.utils.GlideApp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
@@ -112,11 +116,14 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 
     private var isProcessing: Boolean = false
     private var capturedImage1: File? = null
-    private var capturedImage2: File? = null
-    private var resultImageView: ImageView? = null
+//    private var capturedImage2: File? = null
+//    private var resultImageView: ImageView? = null
     private var resultImage: Bitmap? = null
     private var resultFile: File? = null
     private var cachedTargetDimens = android.util.Size(0, 0)
+    private lateinit var faceImageManager: FaceImageManager
+    private lateinit var imageView: ImageView
+    private var bitmapForFace : Bitmap? = null
 
 
 
@@ -215,19 +222,11 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
         val thumbnail = container.findViewById<ImageButton>(R.id.photo_view_button)
 
         val capturedThumbnail1 = container.findViewById<ImageButton>(R.id.capture_image_1)
-        val capturedThumbnail2 = container.findViewById<ImageButton>(R.id.capture_image_2)
+//        val capturedThumbnail2 = container.findViewById<ImageButton>(R.id.capture_image_2)
         var doChangeFaces = false
 
-//        if (capturedImage1 != null && capturedImage2 != null) {
-//            capturedImage1 = null
-//            capturedImage2 = null
-//        }
+        capturedImage1 = file
 
-        if (lensFacing == CameraX.LensFacing.BACK) {
-            capturedImage1 = file
-        } else {
-            capturedImage2 = file
-        }
 
         // Run the operations in the view's thread
         thumbnail.post {
@@ -235,7 +234,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
             // Remove thumbnail padding
             thumbnail.setPadding(resources.getDimension(R.dimen.stroke_small).toInt())
             capturedThumbnail1.setPadding(resources.getDimension(R.dimen.stroke_small).toInt())
-            capturedThumbnail2.setPadding(resources.getDimension(R.dimen.stroke_small).toInt())
+//            capturedThumbnail2.setPadding(resources.getDimension(R.dimen.stroke_small).toInt())
 
             // Load thumbnail into circular button using Glide
             Glide.with(thumbnail)
@@ -248,149 +247,58 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
                     .apply(RequestOptions.circleCropTransform())
                     .into(capturedThumbnail1)
             }
-            capturedImage2?.let{
-                Glide.with(capturedThumbnail2)
-                    .load(capturedImage2)
-                    .apply(RequestOptions.circleCropTransform())
-                    .into(capturedThumbnail2)
-            }
+//            capturedImage2?.let{
+//                Glide.with(capturedThumbnail2)
+//                    .load(capturedImage2)
+//                    .apply(RequestOptions.circleCropTransform())
+//                    .into(capturedThumbnail2)
+//            }
 
             backKey()
 //            if (doChangeFaces) {
 //                cropImages()
 //            }
+
         }
+
+        container.findViewById<ImageView>(R.id.image_view).post {
+            setBgImage(file)
+
+            a()
+
+        }
+
+
+//        setBgImage(file)
     }
 
     private fun backKey() {
         activity?.supportFragmentManager?.popBackStackImmediate()
     }
 
-    private fun cropImages() {
-        context?.let {context ->
-            if (capturedImage1 != null && capturedImage2 != null) {
+    private fun setBgImage(file: File) {
+        GlobalScope.launch(Dispatchers.IO) {
+            val faceImage = GlideApp.with(imageView).asBitmap().load(file).submit().get()
+            resultImage = faceImage
+//            withContext(Dispatchers.Main) {
+                a()
+//                faceImageManager.startForBg(faceImage, object : FaceImageManager.FaceImage{
+//                    override fun bringFaceImage(faceBitmap: Bitmap) {
+//
+//                        GlideApp.with(imageView).load(faceBitmap).into(imageView)
+//                    }
+//                })
+//            }
+        }
+    }
 
-                val image1: FirebaseVisionImage
-                val image2: FirebaseVisionImage
-
-                try {
-                    capturedImage1?.let {capturedImage1 ->
-                        image1 = FirebaseVisionImage.fromFilePath(context, capturedImage1.toUri())
-                        capturedImage2?.let { capturedImage2 ->
-                            image2 = FirebaseVisionImage.fromFilePath(context, capturedImage2.toUri())
-
-                            runFaceContourDetectionForImage(capturedImage1, image1)
-//                            runFaceContourDetectionForImage(image2)
-                        }
-                    }
-
-
-
-
-
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-
-
+    private fun a() {
+        resultImage?.let { faceImageManager.startForBg(it, object : FaceImageManager.FaceImage{
+            override fun bringFaceImage(faceBitmap: Bitmap) {
+                bitmapForFace = faceBitmap
             }
-        }
-
-
-
-
-
+        }) }
     }
-
-    private fun runFaceContourDetectionForImage(file: File, firebaseVisionImage: FirebaseVisionImage) {
-        try {
-            val image = firebaseVisionImage
-            val options = FirebaseVisionFaceDetectorOptions.Builder()
-                .setPerformanceMode(FirebaseVisionFaceDetectorOptions.FAST)
-                .setContourMode(FirebaseVisionFaceDetectorOptions.ALL_CONTOURS)
-                .build()
-            isProcessing = false
-            val detector =
-                FirebaseVision.getInstance().getVisionFaceDetector(options)
-            detector.detectInImage(image)
-                .addOnSuccessListener { faces ->
-                    isProcessing = true
-                    processFaceContourDetectionResultForImage(file, faces)
-                }
-                .addOnFailureListener { e ->
-                    // Task failed with an exception
-                    isProcessing = true
-                    e.printStackTrace()
-                }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-
-    }
-
-    private fun processFaceContourDetectionResultForImage(file: File, faces: List<FirebaseVisionFace>) { // Task completed successfully
-        if (faces.isEmpty()) {
-            showToast("No face found")
-            return
-        }
-        graphicOverlay.clear()
-        for (i in faces.indices) {
-            val face = faces[i]
-            val contour = face.getContour(FirebaseVisionFaceContour.FACE)
-
-
-            val faceGraphic = FaceContourGraphic(graphicOverlay, face) { points, faceInfo ->
-                setResultImage(file, points)
-
-
-            }
-
-            graphicOverlay.add(faceGraphic)
-//            faceGraphic.updateFace(face)
-        }
-    }
-
-    private fun setResultImage(file: File, points: ArrayList<FaceContourGraphic.FaceContourData>) {
-
-
-        val bitmap2 = BitmapFactory.decodeFile(file.path) //BitmapFactory.decodeResource(getResources(),R.drawable.gallery_12);
-
-        val resultingImage = Bitmap.createBitmap(viewFinder.display.width,
-            viewFinder.display.height, bitmap2.config
-        )
-
-        val canvas = Canvas(resultingImage)
-        val paint = Paint()
-        paint.isAntiAlias = true
-
-        val path = Path()
-
-        points.forEach {
-            path.lineTo(it.px, it.py)
-        }
-
-        canvas.drawPath(path, paint)
-//        if (crop) {
-            paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.SRC_IN))
-
-//        } else {
-//            paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.SRC_OUT))
-//        }
-        canvas.drawBitmap(bitmap2, 0.toFloat(), 0.toFloat(), paint)
-        resultImageView?.setImageBitmap(resultingImage)
-
-    }
-
-//    private fun getPositions(face: FirebaseVisionFace) {
-//        val contour = face.getContour(FirebaseVisionFaceContour.ALL_POINTS)
-////        for (point in contour.points) {
-////            val px = translateX(point.x)
-////            val py = translateY(point.y)
-////            canvas.drawCircle(px, py, FaceContourGraphic.FACE_POSITION_RADIUS, facePositionPaint)
-////        }
-//    }
-
-
 
     /** Define callback that will be triggered after a photo has been taken and saved to disk */
     private val imageSavedListener = object : ImageCapture.OnImageSavedListener {
@@ -455,7 +363,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
             // Build UI controls and bind all camera use cases
             updateCameraUi()
             bindCameraUseCases()
-
+            context?.let { faceImageManager = FaceImageManager(it, Size(viewFinder.display.height, viewFinder.display.width), graphicOverlay) }
             // In the background, load latest photo taken (if any) for gallery thumbnail
             lifecycleScope.launch(Dispatchers.IO) {
                 outputDirectory.listFiles { file ->
@@ -517,10 +425,12 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
                 YourImageAnalyzer { image: FirebaseVisionImage, inputImage :Image?, buffer: ByteBuffer, rotation: Int ->
 
 //                    processingRunnable.setNextFrame(image, rotation)
-                    runFaceContourDetection(image)
-
-                    inputImage?.let { cachedTargetDimens = Size(it.width, it.height) }
-                    setcameraInfoForOverlay()
+//                    runFaceContourDetection(image)
+//
+//                    inputImage?.let { cachedTargetDimens = Size(it.width, it.height) }
+//                    setcameraInfoForOverlay()
+                    a()
+                    GlideApp.with(imageView).load(bitmapForFace).into(imageView)
                 })
         }
 
@@ -528,6 +438,8 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
         CameraX.bindToLifecycle(
                 viewLifecycleOwner, preview, imageCapture, imageAnalyzer)
     }
+
+
 
     private fun setcameraInfoForOverlay() {
         val size: Size = Size(viewFinder.display.width, viewFinder.display.height)
@@ -589,6 +501,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
     private fun processFaceContourDetectionResult(faces: List<FirebaseVisionFace>) { // Task completed successfully
         if (faces.isEmpty()) {
             showToast("No face found")
+            graphicOverlay.clear()
             return
         }
         graphicOverlay.clear()
@@ -652,20 +565,23 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
             capturedImage1?.let { goPictureFragment(it) }
 
         }
-        controls.findViewById<ImageButton>(R.id.capture_image_2).setOnClickListener {
-            capturedImage2?.let { goPictureFragment(it) }
-        }
 
-        controls.findViewById<ImageButton>(R.id.change_button).setOnClickListener {
+        imageView = controls.findViewById<ImageView>(R.id.image_view)
 
-        }
-
-        resultImageView = controls.findViewById(R.id.preview_image)
-        resultImageView?.setOnClickListener {
-            resultImage?.let {
-                saveBitmapToFile(it)?.let { file -> goPictureFragment(file) }
-            }
-        }
+//        controls.findViewById<ImageButton>(R.id.capture_image_2).setOnClickListener {
+//            capturedImage2?.let { goPictureFragment(it) }
+//        }
+//
+//        controls.findViewById<ImageButton>(R.id.change_button).setOnClickListener {
+//
+//        }
+//
+//        resultImageView = controls.findViewById(R.id.preview_image)
+//        resultImageView?.setOnClickListener {
+//            resultImage?.let {
+//                saveBitmapToFile(it)?.let { file -> goPictureFragment(file) }
+//            }
+//        }
 
 
         // Listener for button used to capture photo
@@ -727,7 +643,11 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
             goGalleryFragment()
         }
 
-        setcameraInfoForOverlay()
+//        setcameraInfoForOverlay()
+
+        capturedImage1?.let { setBgImage(it) }
+        a()
+
 //        graphicOverlay.setCameraInfo(viewFinder.display.width, viewFinder.display.height, lensFacing.ordinal)
     }
 

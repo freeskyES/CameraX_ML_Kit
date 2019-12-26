@@ -47,6 +47,10 @@ class FaceContourGraphic(overlay: GraphicOverlay,
         postInvalidate()
     }
 
+//    fun mustCallDraw() {
+//        draw(Canvas())
+//    }
+
     /** Draws the face annotations for position on the supplied canvas.  */
     override fun draw(canvas: Canvas) {
         val face = firebaseVisionFace ?: return
@@ -81,7 +85,7 @@ class FaceContourGraphic(overlay: GraphicOverlay,
             val px = translateX(point.x)
             val py = translateY(point.y)
             val points= transPoints(FaceContourData(px, py), centerSizeDelta)
-            Log.i("draw"," ${px} $py $x $y $point")
+//            Log.i("draw"," ${px} $py $x $y $point")
             canvas.drawCircle(points.px/*px*/, points.py /*py*/, FACE_POSITION_RADIUS, facePositionPaint)
 //            canvas.drawCircle(px, py, FACE_POSITION_RADIUS, facePositionPaint)
 //            canvas.drawText("id: ${i}", px -30, py+ 30, idPaint)

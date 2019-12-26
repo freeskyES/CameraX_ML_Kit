@@ -1,19 +1,3 @@
-/*
- * Copyright 2019 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.tenqube.firebase_ml_kit.fragments
 
 import android.graphics.*
@@ -41,6 +25,11 @@ import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import com.tenqube.firebase_ml_kit.R
 import com.tenqube.firebase_ml_kit.facedetection.FaceContourGraphic
 import com.tenqube.firebase_ml_kit.facedetection.common.GraphicOverlay
+import com.tenqube.firebase_ml_kit.utils.GlideApp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.*
 
@@ -145,8 +134,14 @@ class ImageFragment internal constructor() : Fragment() {
                 graphicOverlay.clear()
 
                 val file = mediaList[0]
-                val faceImage = BitmapFactory.decodeFile(file.absolutePath)
-                originBitmapForFace= resizeImage(faceImage)
+                GlobalScope.launch(Dispatchers.IO) {
+                    val faceImage = GlideApp.with(it).asBitmap().load(file).submit().get()
+                    //BitmapFactory.decodeFile(file.absolutePath) // TODO orientation 회전고려 안해줌 Glide 쓰기
+
+                    withContext(Dispatchers.Main) {
+                        originBitmapForFace= resizeImage(faceImage)
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
