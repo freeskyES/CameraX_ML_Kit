@@ -20,7 +20,7 @@ class FaceImageManager(val context: Context,
 
     private var originBitmap: Bitmap? = null
 
-    private var resultBitmap : Bitmap? = null
+    var resultBitmap : Bitmap? = null
 //    private var myFaceInfo: FaceContourGraphic.FaceDetectInfo? = null
 
 
@@ -47,9 +47,12 @@ class FaceImageManager(val context: Context,
             override fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>,
                                    faceInfo: FaceContourGraphic.FaceDetectInfo) {
 //                bgFaceInfo = faceInfo
-                getBgBitmap(points)?.run {
-                    faceImage.bringFaceImage(this)
+                val result = getBgBitmap(points)
+
+                result?.let {
+                    faceImage.bringFaceImage(it)
                 }
+
             }
         })
 
@@ -190,7 +193,7 @@ class FaceImageManager(val context: Context,
                 val result = Bitmap.createBitmap(resultingImage, myFaceInfo.left.toInt(), myFaceInfo.top.toInt(), myFaceInfo.rectWidth.toInt(), myFaceInfo.rectHeight.toInt())
                 resultBitmap = result
                 graphicOverlay.clear()
-                return@let resultBitmap
+                return resultBitmap
                 //TODO 그리기
 //                Glide.with(imageView).load(faceBitmap).into(imageView)
 //            }
@@ -239,12 +242,15 @@ class FaceImageManager(val context: Context,
             canvas.drawBitmap(origin/*bitmap2*/, rect, rect, paint)
 
             resultBitmap = resultingImage
-            return@let resultBitmap
+            graphicOverlay.clear()
+            return resultBitmap
 //            Glide.with(imageView).load(resultingImage).into(imageView)
-
         }
         return null
     }
 
+    fun bringResultBitmap(): Bitmap? {
+        return resultBitmap
+    }
 
 }

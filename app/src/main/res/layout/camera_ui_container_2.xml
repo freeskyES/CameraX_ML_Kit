@@ -24,14 +24,14 @@
     android:layout_height="match_parent">
 
     <!-- Camera control and gallery buttons -->
-    <ImageView
-        android:id="@+id/image_view"
-        android:background="#00000000"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        android:scaleType="fitStart"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+<!--    <ImageView-->
+<!--        android:id="@+id/image_view"-->
+<!--        android:background="#00000000"-->
+<!--        app:layout_constraintEnd_toEndOf="parent"-->
+<!--        app:layout_constraintStart_toStartOf="parent"-->
+<!--        android:scaleType="fitStart"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="match_parent"/>-->
 
     <ImageButton
         android:id="@+id/camera_switch_button"

@@ -155,28 +155,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun openCamera() {
         supportFragmentManager.beginTransaction()
-            .replace(R.id.container, CameraFragment.newInstance())
-            .commitNow()
+            .add(R.id.container, CameraFragment.newInstance())
+            .addToBackStack(null)
+            .commit()
     }
 
     private fun openCamera2() {
         supportFragmentManager.beginTransaction()
-            .replace(R.id.container, CameraFragment2.newInstance())
-            .commitNow()
+            .add(R.id.container, CameraFragment2.newInstance())
+            .addToBackStack(null)
+            .commit()
     }
 
     private fun openGallery() {
 
         supportFragmentManager.beginTransaction()
             .add(R.id.container, GalleryFragment.newInstance(getOutputDirectory(this).absolutePath))
-            .commitNow()
+            .addToBackStack(null)
+            .commit()
     }
 
     private fun openImage() {
 
         supportFragmentManager.beginTransaction()
-            .replace(R.id.container, ImageFragment.newInstance(getOutputDirectory(this).absolutePath))
-            .commitNow()
+            .add(R.id.container, ImageFragment.newInstance(getOutputDirectory(this).absolutePath))
+            .addToBackStack(null)
+            .commit()
     }
 
     /**
@@ -194,6 +198,14 @@ class MainActivity : AppCompatActivity() {
 //        container.postDelayed({
 //            container.systemUiVisibility = FLAGS_FULLSCREEN
 //        }, IMMERSIVE_FLAG_TIMEOUT)
+    }
+
+    override fun onBackPressed() {
+        if (supportFragmentManager.backStackEntryCount != 0) {
+            supportFragmentManager.popBackStack()
+        } else {
+            super.onBackPressed()
+        }
     }
 
     companion object {

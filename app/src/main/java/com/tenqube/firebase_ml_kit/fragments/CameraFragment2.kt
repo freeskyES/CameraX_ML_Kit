@@ -113,6 +113,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 
     private var frameProcessor: VisionImageProcessor? = null
     private lateinit var graphicOverlay: GraphicOverlay
+    private lateinit var bgGraphicOverlay: GraphicOverlay
 
     private var isProcessing: Boolean = false
     private var capturedImage1: File? = null
@@ -129,6 +130,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 
     private fun cleanScreen() {
         graphicOverlay.clear()
+        bgGraphicOverlay.clear()
     }
 
 
@@ -207,6 +209,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 
         val view = inflater.inflate(R.layout.fragment_camera_2, container, false)
         graphicOverlay = view.findViewById(R.id.fireFaceOverlay)
+        bgGraphicOverlay = view.findViewById(R.id.bgFaceOverlay)
 
 //        synchronized(processorLock) {
             cleanScreen()
@@ -247,29 +250,15 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
                     .apply(RequestOptions.circleCropTransform())
                     .into(capturedThumbnail1)
             }
-//            capturedImage2?.let{
-//                Glide.with(capturedThumbnail2)
-//                    .load(capturedImage2)
-//                    .apply(RequestOptions.circleCropTransform())
-//                    .into(capturedThumbnail2)
-//            }
 
-            backKey()
+
 //            if (doChangeFaces) {
 //                cropImages()
 //            }
 
         }
 
-        container.findViewById<ImageView>(R.id.image_view).post {
-            setBgImage(file)
-
-            a()
-
-        }
-
-
-//        setBgImage(file)
+        setBgImage(file)
     }
 
     private fun backKey() {
@@ -280,15 +269,15 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
         GlobalScope.launch(Dispatchers.IO) {
             val faceImage = GlideApp.with(imageView).asBitmap().load(file).submit().get()
             resultImage = faceImage
-//            withContext(Dispatchers.Main) {
-                a()
-//                faceImageManager.startForBg(faceImage, object : FaceImageManager.FaceImage{
-//                    override fun bringFaceImage(faceBitmap: Bitmap) {
-//
-//                        GlideApp.with(imageView).load(faceBitmap).into(imageView)
-//                    }
-//                })
-//            }
+//            a()
+
+            withContext(Dispatchers.Main) {
+                faceImageManager.startForBg(faceImage, object : FaceImageManager.FaceImage{
+                    override fun bringFaceImage(faceBitmap: Bitmap) {
+                        GlideApp.with(imageView).load(faceBitmap).into(imageView)
+                    }
+                })
+            }
         }
     }
 
@@ -296,8 +285,9 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
         resultImage?.let { faceImageManager.startForBg(it, object : FaceImageManager.FaceImage{
             override fun bringFaceImage(faceBitmap: Bitmap) {
                 bitmapForFace = faceBitmap
+                Glide.with(imageView).load(bitmapForFace).into(imageView)
             }
-        }) }
+        })}
     }
 
     /** Define callback that will be triggered after a photo has been taken and saved to disk */
@@ -341,6 +331,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
         super.onViewCreated(view, savedInstanceState)
         container = view as ConstraintLayout
         viewFinder = container.findViewById(R.id.view_finder)
+        imageView = container.findViewById(R.id.image_view)
         broadcastManager = LocalBroadcastManager.getInstance(view.context)
 
         // Set up the intent filter that will receive events from our main activity
@@ -363,7 +354,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
             // Build UI controls and bind all camera use cases
             updateCameraUi()
             bindCameraUseCases()
-            context?.let { faceImageManager = FaceImageManager(it, Size(viewFinder.display.height, viewFinder.display.width), graphicOverlay) }
+            context?.let { faceImageManager = FaceImageManager(it, Size(viewFinder.display.height, viewFinder.display.width), bgGraphicOverlay) }
             // In the background, load latest photo taken (if any) for gallery thumbnail
             lifecycleScope.launch(Dispatchers.IO) {
                 outputDirectory.listFiles { file ->
@@ -427,10 +418,9 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 //                    processingRunnable.setNextFrame(image, rotation)
 //                    runFaceContourDetection(image)
 //
-//                    inputImage?.let { cachedTargetDimens = Size(it.width, it.height) }
-//                    setcameraInfoForOverlay()
-                    a()
-                    GlideApp.with(imageView).load(bitmapForFace).into(imageView)
+                    inputImage?.let { cachedTargetDimens = Size(it.width, it.height) }
+                    setcameraInfoForOverlay()
+
                 })
         }
 
@@ -566,7 +556,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 
         }
 
-        imageView = controls.findViewById<ImageView>(R.id.image_view)
+//        imageView = controls.findViewById<ImageView>(R.id.image_view)
 
 //        controls.findViewById<ImageButton>(R.id.capture_image_2).setOnClickListener {
 //            capturedImage2?.let { goPictureFragment(it) }
@@ -645,8 +635,8 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 
 //        setcameraInfoForOverlay()
 
-        capturedImage1?.let { setBgImage(it) }
-        a()
+//        capturedImage1?.let { setBgImage(it) }
+
 
 //        graphicOverlay.setCameraInfo(viewFinder.display.width, viewFinder.display.height, lensFacing.ordinal)
     }
@@ -702,6 +692,7 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
                 .commitNow()
         }
     }
+
 
 
     companion object {

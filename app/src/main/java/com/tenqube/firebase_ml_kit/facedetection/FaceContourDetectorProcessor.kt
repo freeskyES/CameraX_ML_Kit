@@ -9,7 +9,6 @@ import com.google.firebase.ml.vision.face.FirebaseVisionFace
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetector
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import com.tenqube.firebase_ml_kit.VisionProcessorBase
-import com.tenqube.firebase_ml_kit.facedetection.common.CameraImageGraphic
 import com.tenqube.firebase_ml_kit.facedetection.common.FrameMetadata
 import com.tenqube.firebase_ml_kit.facedetection.common.GraphicOverlay
 import java.io.IOException
