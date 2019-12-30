@@ -44,7 +44,6 @@ import androidx.camera.core.ImageCapture.CaptureMode
 import androidx.camera.core.ImageCapture.Metadata
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -58,7 +57,6 @@ import com.bumptech.glide.request.RequestOptions
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.face.FirebaseVisionFace
-import com.google.firebase.ml.vision.face.FirebaseVisionFaceContour
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import com.tenqube.firebase_ml_kit.KEY_EVENT_ACTION
 import com.tenqube.firebase_ml_kit.KEY_EVENT_EXTRA
@@ -125,6 +123,13 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
     private lateinit var faceImageManager: FaceImageManager
     private lateinit var imageView: ImageView
     private var bitmapForFace : Bitmap? = null
+    private var bitmapForbg : Bitmap? = null
+
+
+    /**
+     * 이미지가 있는지 체크하기
+     */
+    private var checkBgFace = false
 
 
 
@@ -211,11 +216,8 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
         graphicOverlay = view.findViewById(R.id.fireFaceOverlay)
         bgGraphicOverlay = view.findViewById(R.id.bgFaceOverlay)
 
-//        synchronized(processorLock) {
-            cleanScreen()
-//            frameProcessor?.let { it.stop() }
-//            frameProcessor = FaceContourDetectorProcessor()
-//        }
+        cleanScreen()
+
         return view
 
     }
@@ -252,12 +254,9 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
             }
 
 
-//            if (doChangeFaces) {
-//                cropImages()
-//            }
-
         }
 
+        // 갤러리의 마지막 이미지 로드되면, 이미지 얼굴 분석 및 bg 깔기
         setBgImage(file)
     }
 
@@ -269,12 +268,13 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
         GlobalScope.launch(Dispatchers.IO) {
             val faceImage = GlideApp.with(imageView).asBitmap().load(file).submit().get()
             resultImage = faceImage
-//            a()
 
             withContext(Dispatchers.Main) {
                 faceImageManager.startForBg(faceImage, object : FaceImageManager.FaceImage{
-                    override fun bringFaceImage(faceBitmap: Bitmap) {
-                        GlideApp.with(imageView).load(faceBitmap).into(imageView)
+                    override fun bringResultImage(resultBitmap: Bitmap) {
+
+//                        GlideApp.with(imageView).load(resultBitmap).into(imageView)
+                        checkBgFace = true
                     }
                 })
             }
@@ -283,8 +283,8 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 
     private fun a() {
         resultImage?.let { faceImageManager.startForBg(it, object : FaceImageManager.FaceImage{
-            override fun bringFaceImage(faceBitmap: Bitmap) {
-                bitmapForFace = faceBitmap
+            override fun bringResultImage(resultBitmap: Bitmap) {
+                bitmapForFace = resultBitmap
                 Glide.with(imageView).load(bitmapForFace).into(imageView)
             }
         })}
@@ -347,6 +347,10 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
         outputDirectory = MainActivity.getOutputDirectory(requireContext())
 
         // Wait for the views to be properly laid out
+        startCamera()
+    }
+
+    private fun startCamera() {
         viewFinder.post {
             // Keep track of the display in which this view is attached
             displayId = viewFinder.display.displayId
@@ -417,9 +421,23 @@ class CameraFragment2 : Fragment()/*, CoroutineScope */{
 
 //                    processingRunnable.setNextFrame(image, rotation)
 //                    runFaceContourDetection(image)
-//
-                    inputImage?.let { cachedTargetDimens = Size(it.width, it.height) }
-                    setcameraInfoForOverlay()
+
+                    if(checkBgFace) {
+                        inputImage?.let { cachedTargetDimens = Size(it.width, it.height) }
+                        setcameraInfoForOverlay()
+
+                        faceImageManager.startForFace(image, object : FaceImageManager.FaceImage {
+                            override fun bringResultImage(resultBitmap: Bitmap) {
+
+                                faceImageManager.changeFaces(object : FaceImageManager.FaceImage{
+                                    override fun bringResultImage(resultBitmap: Bitmap) {
+//                                        GlideApp.with(imageView).load(resultBitmap).into(imageView)
+                                        Glide.with(imageView).load(resultBitmap).into(imageView)
+                                    }
+                                })
+                            }
+                        })
+                    }
 
                 })
         }

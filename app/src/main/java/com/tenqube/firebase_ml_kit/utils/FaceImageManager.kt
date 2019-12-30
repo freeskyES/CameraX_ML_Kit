@@ -2,6 +2,7 @@ package com.tenqube.firebase_ml_kit.utils
 
 import android.content.Context
 import android.graphics.*
+import android.util.Log
 import android.util.Pair
 import android.util.Size
 import androidx.core.content.ContextCompat
@@ -13,26 +14,42 @@ import com.tenqube.firebase_ml_kit.R
 import com.tenqube.firebase_ml_kit.facedetection.FaceContourGraphic
 import com.tenqube.firebase_ml_kit.facedetection.common.GraphicOverlay
 import java.util.ArrayList
+import kotlin.math.floor
+import kotlin.math.round
 
 class FaceImageManager(val context: Context,
                        private val previewSize: Size,
                        private val graphicOverlay: GraphicOverlay) {
 
-    private var originBitmap: Bitmap? = null
+//    private var originBitmap: Bitmap? = null
+//    var resultBitmap : Bitmap? = null
 
-    var resultBitmap : Bitmap? = null
-//    private var myFaceInfo: FaceContourGraphic.FaceDetectInfo? = null
+    private var originBitmapForFace : Bitmap? = null
+    var faceBitmap : Bitmap? = null
+
+    private var originBitmapForBg : Bitmap? = null
+    var bgBitmap : Bitmap? = null
+
+    private var finalImageBitmap: Bitmap?= null
+
+    var bgFaceInfo: FaceContourGraphic.FaceDetectInfo? = null
+    var myFaceInfo: FaceContourGraphic.FaceDetectInfo? = null
 
 
-    fun startForFace(bitmap: Bitmap, faceImage: FaceImage) {
+    fun startForFace(firebaseVisionImage: FirebaseVisionImage, faceImage: FaceImage) {
 
-        val resizeBitmap = resizeImage(bitmap)
-        originBitmap = resizeBitmap
-        getVisionPoints(resizeBitmap, object : CallbackGraphic {
+//        originBitmapForFace?.let { if (!it.isRecycled) it.recycle() }
+//        faceBitmap?.let { if (!it.isRecycled) it.recycle() }
+
+//        val resizeBitmap = resizeImage(bitmap)
+        originBitmapForFace = firebaseVisionImage.bitmap
+        getVisionPoints(firebaseVisionImage, object : CallbackGraphic {
             override fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>,
                                    faceInfo: FaceContourGraphic.FaceDetectInfo) {
-//                myFaceInfo = faceInfo
-                getFaceBitmap(points, faceInfo)?.run { faceImage.bringFaceImage(this) }
+                myFaceInfo = faceInfo
+                getFaceBitmap(points, faceInfo)?.run {
+                    faceImage.bringResultImage(this)
+                }
             }
         })
 
@@ -40,31 +57,67 @@ class FaceImageManager(val context: Context,
 
     fun startForBg(bitmap: Bitmap, faceImage: FaceImage) {
 
-        val resizeBitmap = resizeImage(bitmap)
-        originBitmap = resizeBitmap
+//        originBitmapForBg?.let { if (!it.isRecycled) it.recycle() }
+//        bgBitmap?.let { if (!it.isRecycled) it.recycle() }
 
-        getVisionPoints(resizeBitmap, object : CallbackGraphic {
+        val resizeBitmap = resizeImage(bitmap)
+        originBitmapForBg = resizeBitmap
+
+        getVisionPoints(FirebaseVisionImage.fromBitmap(resizeBitmap), object : CallbackGraphic {
             override fun getPoints(points: ArrayList<FaceContourGraphic.FaceContourData>,
                                    faceInfo: FaceContourGraphic.FaceDetectInfo) {
-//                bgFaceInfo = faceInfo
+                bgFaceInfo = faceInfo
                 val result = getBgBitmap(points)
 
                 result?.let {
-                    faceImage.bringFaceImage(it)
+                    faceImage.bringResultImage(it)
                 }
-
             }
         })
+    }
 
+    fun changeFaces(faceImage: FaceImage) {
+        bgBitmap?.let { bg -> faceBitmap?.let { face -> bgFaceInfo?.let { bgFaceInfo -> {
+//            finalImageBitmap?.let { if (!it.isRecycled) it.recycle() }
+            changeFace(bg, face, bgFaceInfo)?.let { faceImage.bringResultImage(it) }
+
+        } } } }
+
+    }
+
+    private fun changeFace(bgBitmap: Bitmap, faceBitmap: Bitmap, bgFaceInfo: FaceContourGraphic.FaceDetectInfo/*, myFaceInfo: FaceContourGraphic.FaceDetectInfo*/): Bitmap? {
+        graphicOverlay.clear()
+
+        val resultImage = bgBitmap.copy(bgBitmap.config, true)
+        Log.i("changeFace","bgBitmap : ${bgBitmap.width} ${bgBitmap.height}")
+        Log.i("changeFace","bgface : $bgFaceInfo")
+
+        Log.i("changeFace","faceBitmap : ${faceBitmap.width} ${faceBitmap.height}")
+        // 얼굴 bg 사이즈에 맞게 resize
+//        val resizeFace = Bitmap.createScaledBitmap(faceBitmap, bgFaceInfo.rectWidth.toInt(), bgFaceInfo.rectHeight.toInt(), false)
+        val resizeFace = Bitmap.createScaledBitmap(faceBitmap, (bgFaceInfo.rectWidth*1.02).toInt(), (bgFaceInfo.rectHeight*1.02).toInt(), false) // 늘어날경우엔 true 로 해줘야 안깨진다
+        Log.i("changeFace","resize faceBitmap : ${resizeFace.width} ${resizeFace.height}")
+
+
+        val canvas = Canvas(resultImage)
+        val top = if (bgFaceInfo.top >= 16) bgFaceInfo.top - 16 else bgFaceInfo.top
+        val left = if (bgFaceInfo.left >= 2) bgFaceInfo.left - 2 else bgFaceInfo.left
+        canvas.drawBitmap(resizeFace, left, top, null)
+        finalImageBitmap = resultImage
+
+        if (!resultImage.isRecycled) resultImage.recycle()
+
+        return finalImageBitmap
+//        Glide.with(imageView).load(finalImageBitmap).into(imageView)
     }
 
     interface FaceImage{
-        fun bringFaceImage(faceBitmap: Bitmap)
+        fun bringResultImage(resultBitmap: Bitmap)
     }
 
-    private fun getVisionPoints(bitmap: Bitmap, callback: CallbackGraphic) {
+    private fun getVisionPoints(firebaseVisionImage: FirebaseVisionImage, callback: CallbackGraphic) {
 
-        val visionImage = FirebaseVisionImage.fromBitmap(bitmap)
+        val visionImage = firebaseVisionImage//FirebaseVisionImage.fromBitmap(bitmap)
 
         runFaceContourDetectionForImage(visionImage, object :Callback {
 
@@ -157,7 +210,7 @@ class FaceImageManager(val context: Context,
 
     private fun getFaceBitmap(points: ArrayList<FaceContourGraphic.FaceContourData>, myFaceInfo: FaceContourGraphic.FaceDetectInfo): Bitmap? {
 
-        originBitmap?.let { origin ->
+        originBitmapForFace?.let { origin ->
 
             val resultingImage = Bitmap.createBitmap(origin.width,
                 origin.height, Bitmap.Config.ARGB_8888
@@ -188,18 +241,28 @@ class FaceImageManager(val context: Context,
             canvas.drawBitmap(origin/*bitmap2*/, rect, rect, paint)
 
 
+            // resultingImage 얼굴은 잘 짤리지만 bitmap createBitmap resize 가 안됨
+
             // 얼굴크기로 bitmap resize 하기
 //            myFaceInfo?.run {
-                val result = Bitmap.createBitmap(resultingImage, myFaceInfo.left.toInt(), myFaceInfo.top.toInt(), myFaceInfo.rectWidth.toInt(), myFaceInfo.rectHeight.toInt())
-                resultBitmap = result
+            if (myFaceInfo.top > 0 && myFaceInfo.left > 0) {
+
+                Log.i("log","resultingImage : $resultingImage $myFaceInfo ")
+                val result = Bitmap.createBitmap(resultingImage, (myFaceInfo.left).toInt(), floor(myFaceInfo.top).toInt(), (myFaceInfo.rectWidth).toInt(), floor(myFaceInfo.rectHeight).toInt())
+
+//            if (!origin.isRecycled) origin.recycle()
+//            if (!resultingImage.isRecycled) resultingImage.recycle()
+
+                faceBitmap = result
                 graphicOverlay.clear()
-                return resultBitmap
+                return faceBitmap
                 //TODO 그리기
 //                Glide.with(imageView).load(faceBitmap).into(imageView)
 //            }
 
 //            faceBitmap = resultingImage
 //            Glide.with(imageView).load(resultingImage).into(imageView)
+            }
 
         }
         return null
@@ -207,7 +270,7 @@ class FaceImageManager(val context: Context,
 
     private fun getBgBitmap(points: ArrayList<FaceContourGraphic.FaceContourData>): Bitmap? {
 
-        originBitmap?.let {bitmap ->
+        originBitmapForBg?.let {bitmap ->
 
             val origin = bitmap//firebaseVisionImage.bitmap//BitmapFactory.decodeResource(getResources(),R.drawable.gallery_12);
 
@@ -241,16 +304,21 @@ class FaceImageManager(val context: Context,
 
             canvas.drawBitmap(origin/*bitmap2*/, rect, rect, paint)
 
-            resultBitmap = resultingImage
+//            if (!origin.isRecycled) origin.recycle()
+//            if (!resultingImage.isRecycled) resultingImage.recycle()
+
+            bgBitmap = resultingImage
             graphicOverlay.clear()
-            return resultBitmap
+            return bgBitmap
 //            Glide.with(imageView).load(resultingImage).into(imageView)
         }
         return null
     }
 
-    fun bringResultBitmap(): Bitmap? {
-        return resultBitmap
-    }
+//    fun bringResultBitmap(): Bitmap? {
+//        return resultBitmap
+//    }
+
+
 
 }

@@ -177,7 +177,7 @@ class BgImageManager(val context: Context,
                 val result = Bitmap.createBitmap(resultingImage, myFaceInfo.left.toInt(), myFaceInfo.top.toInt(), myFaceInfo.rectWidth.toInt(), myFaceInfo.rectHeight.toInt())
                 faceBitmap = result
                 graphicOverlay.clear()
-                return@let faceBitmap
+                return faceBitmap
                 //TODO 그리기
 //                Glide.with(imageView).load(faceBitmap).into(imageView)
 //            }
